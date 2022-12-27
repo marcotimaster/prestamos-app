@@ -28,7 +28,7 @@ app.use(authMiddleware_1.authMiddleware);
 apiDocumentation_1.default(app);
 // Default rate limiter
 const defaultRateLimiter = apiRateLimiter_1.createRateLimiter({
-    max: 500,
+    max: 50000,
     windowMs: 15 * 60 * 1000,
     message: 'errors.429',
 });
@@ -66,6 +66,7 @@ require('./contratoPrestamo').default(routes);
 require('./pago').default(routes);
 require('./fondo').default(routes);
 require('./aporte').default(routes);
+require('./dashboard').default(routes);
 // Loads the Tenant if the :tenantId param is passed
 routes.param('tenantId', tenantMiddleware_1.tenantMiddleware);
 // Add the routes to the /api endpoint
