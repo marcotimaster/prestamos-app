@@ -173,9 +173,7 @@ border-top-width: 2px !important;
   border-image-outset: initial !important;
   border-image-repeat: initial !important;
 }`;
-const design1 = `
-<style>${exports.cssdesign1}</style>
-<div class="container">
+const design1 = `<div class="container">
 <p class="title"><span>DOCUMENTO PRIVADO</span></p>
 <p class="title">(CONTRATO DE PRESTAMO DE DINERO)</span></p>
 <div class="card p-3 border-0">
