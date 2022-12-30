@@ -12,18 +12,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const permissionChecker_1 = __importDefault(require("../../services/user/permissionChecker"));
 const apiResponseHandler_1 = __importDefault(require("../apiResponseHandler"));
-const permissions_1 = __importDefault(require("../../security/permissions"));
 const contratoPrestamoService_1 = __importDefault(require("../../services/contratoPrestamoService"));
 exports.default = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        new permissionChecker_1.default(req).validateHas(permissions_1.default.values.contratoPrestamoCreate);
-        const payload = yield new contratoPrestamoService_1.default(req).create(req.body.data);
-        yield apiResponseHandler_1.default.success(req, res, payload);
+        // new PermissionChecker(req).validateHas(
+        //   Permissions.values.contratoPrestamoRead,
+        // );
+        const result = yield new contratoPrestamoService_1.default(req)._notifyDeudaPending();
+        res.send(result);
     }
     catch (error) {
         yield apiResponseHandler_1.default.error(req, res, error);
     }
 });
-//# sourceMappingURL=contratoPrestamoCreate.js.map
+//# sourceMappingURL=contratoPrestamoAutoNotify.js.map

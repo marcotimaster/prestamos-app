@@ -95,7 +95,8 @@ const es = {
         pago: {
             errors: {
                 unique: {}
-            }
+            },
+            exceed: 'El pago de capital debe ser menor o igual al capital solicitado'
         },
         fondo: {
             errors: {

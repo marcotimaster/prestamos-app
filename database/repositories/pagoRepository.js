@@ -21,6 +21,7 @@ const pago_1 = __importDefault(require("../models/pago"));
 const fileRepository_1 = __importDefault(require("./fileRepository"));
 const deudorRepository_1 = __importDefault(require("./deudorRepository"));
 const contratoPrestamoRepository_1 = __importDefault(require("./contratoPrestamoRepository"));
+const Error400_1 = __importDefault(require("../../errors/Error400"));
 class PagoRepository {
     static create(data, options) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -30,8 +31,8 @@ class PagoRepository {
                 Object.assign(Object.assign({}, data), { tenant: currentTenant.id, createdBy: currentUser.id, updatedBy: currentUser.id })
             ], options);
             yield this._createAuditLog(auditLogRepository_1.default.CREATE, record.id, data, options);
-            yield this.createPagoDeudor(data.contratoId, data.tipo, data.cantidad, options);
             yield this.createPagoContratoPrestamo(data.contratoId, data.tipo, data.cantidad, options);
+            yield this.createPagoDeudor(data.contratoId, data.tipo, data.cantidad, options);
             return this.findById(record.id, options);
         });
     }
@@ -73,6 +74,9 @@ class PagoRepository {
                     else if (tipo === 'Capital') {
                         newCapitalPagado += cantidad;
                         newCapitalPendiente -= cantidad;
+                    }
+                    if (newCapitalPagado > contrato.capitalPagado) {
+                        throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
                     }
                     yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPendiente: newInteresPendiente, capitalPendiente: newCapitalPendiente, interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
                 }
@@ -121,6 +125,9 @@ class PagoRepository {
                         newCapitalPendiente = (newCapitalPendiente + prevCantidad) - newCantidad;
                     }
                 }
+                if (newCapitalPagado > contrato.capitalPagado) {
+                    throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
+                }
                 yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPendiente: newInteresPendiente, capitalPendiente: newCapitalPendiente, interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
             }
         });
@@ -134,8 +141,8 @@ class PagoRepository {
             }
             yield pago_1.default(options.database).updateOne({ _id: id }, Object.assign(Object.assign({}, data), { updatedBy: mongooseRepository_1.default.getCurrentUser(options).id }), options);
             yield this._createAuditLog(auditLogRepository_1.default.UPDATE, id, data, options);
-            yield this.updatePagoDeudor(data.contratoId, record.cantidad, data.cantidad, options);
             yield this.updatePagoContratoPrestamo(data.contratoId, record.tipo, data.tipo, record.cantidad, data.cantidad, options);
+            yield this.updatePagoDeudor(data.contratoId, record.cantidad, data.cantidad, options);
             record = yield this.findById(id, options);
             return record;
         });

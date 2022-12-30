@@ -472,6 +472,13 @@ class ContratoPrestamoRepository {
             }, options);
         });
     }
+    static _monthDiff(d1, d2) {
+        let months;
+        months = (d2.getFullYear() - d1.getFullYear()) * 12;
+        months -= d1.getMonth();
+        months += d2.getMonth();
+        return months <= 0 ? 0 : months;
+    }
     static _mapRelationshipsAndFillDownloadUrl(record) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!record) {
@@ -481,7 +488,17 @@ class ContratoPrestamoRepository {
                 ? record.toObject()
                 : record;
             output.fotoFirma = yield fileRepository_1.default.fillDownloadUrl(output.fotoFirma);
+            const interes = output.interes;
+            const cantidadSolicitada = output.cantidadSolicitada;
+            const fechaEmision = moment_1.default(ContratoPrestamoRepository.convertDigitIn(output.fecha));
+            const fechaActual = moment_1.default();
+            const duration = moment_1.default.duration(fechaActual.diff(fechaEmision));
+            const dayMonthsMora = 30;
+            const months = duration.months();
+            const days = duration.days();
+            const total = (cantidadSolicitada * (interes / 100)) * months + (((cantidadSolicitada * (interes / 100)) / dayMonthsMora) * days);
             output.capitalPendiente = output.capitalPendiente || output.cantidadSolicitada;
+            output.interesPendiente = output.interesPendiente + total;
             return output;
         });
     }

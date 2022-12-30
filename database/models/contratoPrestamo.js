@@ -59,7 +59,6 @@ exports.default = (database) => {
         interesPendiente: {
             type: Number,
             required: true,
-            min: 0,
         },
         capitalPagado: {
             type: Number,
@@ -75,6 +74,9 @@ exports.default = (database) => {
             type: String,
         },
         fotoFirma: [fileSchema_1.default],
+        lastDateNotify: {
+            type: String,
+        },
         tenant: {
             type: Schema.Types.ObjectId,
             ref: 'tenant',

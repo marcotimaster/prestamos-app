@@ -19,17 +19,20 @@ const aporteRepository_1 = __importDefault(require("../database/repositories/apo
 const deudorRepository_1 = __importDefault(require("../database/repositories/deudorRepository"));
 const smsSender_1 = __importDefault(require("./smsSender"));
 const settingsRepository_1 = __importDefault(require("../database/repositories/settingsRepository"));
+const tenant_1 = __importDefault(require("../database/models/tenant"));
+const contratoPrestamo_1 = __importDefault(require("../database/models/contratoPrestamo"));
+const moment_1 = __importDefault(require("moment"));
+const config_1 = require("../config");
 class ContratoPrestamoService {
     constructor(options) {
         this.options = options;
     }
     create(data) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const session = yield mongooseRepository_1.default.createSession(this.options.database);
             try {
                 data.prestamistas = yield aporteRepository_1.default.filterIdsInTenant(data.prestamistas, Object.assign(Object.assign({}, this.options), { session }));
-                data.deudor = yield deudorRepository_1.default.filterIdInTenant((_a = data.deudor) === null || _a === void 0 ? void 0 : _a.id, Object.assign(Object.assign({}, this.options), { session }));
+                data.deudor = yield deudorRepository_1.default.filterIdInTenant(data.deudor, Object.assign(Object.assign({}, this.options), { session }));
                 const record = yield contratoPrestamoRepository_1.default.create(data, Object.assign(Object.assign({}, this.options), { session }));
                 yield mongooseRepository_1.default.commitTransaction(session);
                 return record;
@@ -108,7 +111,7 @@ class ContratoPrestamoService {
         }
         return result;
     }
-    _sendSmsToDeudor(data) {
+    _sendSmsToDeudor(data, isAuto = false) {
         return __awaiter(this, void 0, void 0, function* () {
             const { deudor } = data;
             if (!deudor.telefono)
@@ -125,7 +128,33 @@ class ContratoPrestamoService {
                 }
             ];
             const message = this.replaceValueInText(settings.notifyMessage, variables);
+            if (isAuto) {
+                new smsSender_1.default().sendTo(config_1.getConfig().MY_PHONE_NUMBER, `Se le notifica que el deudor ${deudor.nombre}, según el contrato establecido en la fecha ${data.fecha} por el monto de ${data.cantidadSolicitada} con el interés del ${data.interes}%, debe realizar el pago del interés al préstamo solicitado, el cual se cumple el día de mañana.`);
+            }
             return new smsSender_1.default().sendTo(deudor.telefono, message);
+        });
+    }
+    _notifyDeudaPending() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const tenants = yield tenant_1.default(this.options.database).find({});
+            for (const tenant of tenants) {
+                const contratos = yield contratoPrestamo_1.default(this.options.database).find({ tenant: tenant.id });
+                for (const contrato of contratos) {
+                    const fechaEmision = moment_1.default(contratoPrestamoRepository_1.default.convertDigitIn(contrato.fecha));
+                    const fechaActual = moment_1.default();
+                    const duration = moment_1.default.duration(fechaActual.diff(fechaEmision));
+                    const dayMonthsMora = 30;
+                    const months = duration.months();
+                    const days = duration.days();
+                    if (days === 1) {
+                        if (contrato.lastDateNotify != moment_1.default().format('DD-MM-yyyy')) {
+                            yield this._sendSmsToDeudor(contrato, true);
+                            yield contratoPrestamo_1.default(this.options.database).find({ tenant: tenant.id, lastDateNotify: moment_1.default().format('DD-MM-yyyy') });
+                        }
+                    }
+                }
+            }
+            return true;
         });
     }
     _isImportHashExistent(importHash) {

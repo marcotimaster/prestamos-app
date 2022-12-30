@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = (app) => {
     app.get('/tenant/:tenantId/contrato-prestamo/download/:id', require('./contratoPrestamoDownload').default);
     app.post('/tenant/:tenantId/contrato-prestamo/notify/:id', require('./contratoPrestamoNotify').default);
+    app.post('/tenants/contrato-prestamo/auto/notify', require('./contratoPrestamoAutoNotify').default);
     app.post(`/tenant/:tenantId/contrato-prestamo`, require('./contratoPrestamoCreate').default);
     app.put(`/tenant/:tenantId/contrato-prestamo/:id`, require('./contratoPrestamoUpdate').default);
     app.post(`/tenant/:tenantId/contrato-prestamo/import`, require('./contratoPrestamoImport').default);
