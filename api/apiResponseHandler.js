@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const html_pdf_node_1 = __importDefault(require("html-pdf-node"));
 const settingsRepository_1 = __importDefault(require("./../database/repositories/settingsRepository"));
-const cheerio_1 = __importDefault(require("cheerio"));
+const { load } = require('cheerio').default;
 class ApiResponseHandler {
     static download(req, res, path) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -78,7 +78,7 @@ class ApiResponseHandler {
                     value: data.fecha,
                 },
             ];
-            const $ = cheerio_1.default.load(html);
+            const $ = load(html);
             $('[alt=${fotoFirmaDeudor}]').attr('src', (_a = data.fotoFirma[0]) === null || _a === void 0 ? void 0 : _a.downloadUrl);
             html = $('body').html();
             html = html.replace(/ class="blocked"/g, '');
