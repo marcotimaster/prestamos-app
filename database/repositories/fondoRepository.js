@@ -118,7 +118,10 @@ class FondoRepository {
             const currentTenant = mongooseRepository_1.default.getCurrentTenant(options);
             let record = yield mongooseRepository_1.default.wrapWithSessionIfExists(fondo_1.default(options.database)
                 .findOne({ _id: id, tenant: currentTenant.id })
-                .populate('prestamista'), options);
+                .populate({
+                path: 'prestamista',
+                populate: 'tags',
+            }), options);
             if (!record) {
                 throw new Error404_1.default();
             }
@@ -193,7 +196,10 @@ class FondoRepository {
                 .skip(skip)
                 .limit(limitEscaped)
                 .sort(sort)
-                .populate('prestamista');
+                .populate({
+                path: 'prestamista',
+                populate: 'tags',
+            });
             const count = yield fondo_1.default(options.database).countDocuments(criteria);
             rows = yield Promise.all(rows.map(this._mapRelationshipsAndFillDownloadUrl));
             return { rows, count };
@@ -220,7 +226,11 @@ class FondoRepository {
             const records = yield fondo_1.default(options.database)
                 .find(criteria)
                 .limit(limitEscaped)
-                .sort(sort);
+                .sort(sort)
+                .populate({
+                path: 'prestamista',
+                populate: 'tags',
+            });
             return records.map((record) => ({
                 id: record.id,
                 label: record.id,

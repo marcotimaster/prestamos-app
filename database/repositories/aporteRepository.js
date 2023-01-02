@@ -172,7 +172,10 @@ class AporteRepository {
                 .skip(skip)
                 .limit(limitEscaped)
                 .sort(sort)
-                .populate('prestamista');
+                .populate({
+                path: 'prestamista',
+                populate: 'tags'
+            });
             const count = yield aporte_1.default(options.database).countDocuments(criteria);
             rows = yield Promise.all(rows.map(this._mapRelationshipsAndFillDownloadUrl));
             return { rows, count };
