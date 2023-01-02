@@ -223,11 +223,16 @@ class PrestamistaRepository {
             const records = yield prestamista_1.default(options.database)
                 .find(criteria)
                 .limit(limitEscaped)
-                .sort(sort);
-            return records.map((record) => ({
-                id: record.id,
-                label: record.nombre,
-            }));
+                .sort(sort)
+                .populate('tags');
+            return records.map((record) => {
+                var _a;
+                return ({
+                    id: record.id,
+                    label: `${record.nombre} ${((_a = record.tags) === null || _a === void 0 ? void 0 : _a.length) > 0 ? `(${record.tags.map(tag => tag.tag).join(', ')})` : ''}`.trim(),
+                    capitalDisponible: record.capitalDisponible,
+                });
+            });
         });
     }
     static _createAuditLog(action, id, data, options) {

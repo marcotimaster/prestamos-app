@@ -20,6 +20,7 @@ const lodash_1 = __importDefault(require("lodash"));
 const deudor_1 = __importDefault(require("../models/deudor"));
 const contratoPrestamo_1 = __importDefault(require("../models/contratoPrestamo"));
 const pago_1 = __importDefault(require("../models/pago"));
+const contratoPrestamoRepository_1 = __importDefault(require("./contratoPrestamoRepository"));
 class DeudorRepository {
     static create(data, options) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -93,7 +94,8 @@ class DeudorRepository {
             if (!record) {
                 throw new Error404_1.default();
             }
-            return this._mapRelationshipsAndFillDownloadUrl(record);
+            const contratos = yield contratoPrestamoRepository_1.default.findAndCountAll({ filter: { deudor: id } }, options);
+            return this._mapRelationshipsAndFillDownloadUrl(record, contratos.rows);
         });
     }
     static findAndCountAll({ filter, limit = 0, offset = 0, orderBy = '' }, options) {
@@ -185,7 +187,10 @@ class DeudorRepository {
                 .sort(sort)
                 .populate('tags');
             const count = yield deudor_1.default(options.database).countDocuments(criteria);
-            rows = yield Promise.all(rows.map(this._mapRelationshipsAndFillDownloadUrl));
+            rows = yield Promise.all(rows.map((row) => __awaiter(this, void 0, void 0, function* () {
+                const contratos = yield contratoPrestamoRepository_1.default.findAndCountAll({ filter: { deudor: row.id } }, options);
+                return this._mapRelationshipsAndFillDownloadUrl(row, contratos.rows);
+            })));
             return { rows, count };
         });
     }
@@ -216,11 +221,15 @@ class DeudorRepository {
             const records = yield deudor_1.default(options.database)
                 .find(criteria)
                 .limit(limitEscaped)
-                .sort(sort);
-            return records.map((record) => ({
-                id: record.id,
-                label: record.nombre,
-            }));
+                .sort(sort)
+                .populate('tags');
+            return records.map((record) => {
+                var _a;
+                return ({
+                    id: record.id,
+                    label: `${record.nombre} ${((_a = record.tags) === null || _a === void 0 ? void 0 : _a.length) > 0 ? `(${record.tags.map(tag => tag.tag).join(', ')})` : ''}`.trim(),
+                });
+            });
         });
     }
     static _createAuditLog(action, id, data, options) {
@@ -233,7 +242,7 @@ class DeudorRepository {
             }, options);
         });
     }
-    static _mapRelationshipsAndFillDownloadUrl(record) {
+    static _mapRelationshipsAndFillDownloadUrl(record, contratos) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!record) {
                 return null;
@@ -241,6 +250,9 @@ class DeudorRepository {
             const output = record.toObject
                 ? record.toObject()
                 : record;
+            const totalIntereses = contratos.reduce((total, contrato) => total + Number(contrato.interesPendiente), 0);
+            const totalCapitals = contratos.reduce((total, contrato) => total + Number(contrato.capitalPendiente), 0);
+            output.deudaPendiente = totalCapitals + totalIntereses;
             return output;
         });
     }

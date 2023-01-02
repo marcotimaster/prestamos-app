@@ -25,6 +25,7 @@ const Error400_1 = __importDefault(require("../../errors/Error400"));
 const aporteRepository_1 = __importDefault(require("./aporteRepository"));
 const deudorRepository_1 = __importDefault(require("./deudorRepository"));
 const moment_1 = __importDefault(require("moment"));
+const pagoRepository_1 = __importDefault(require("./pagoRepository"));
 class ContratoPrestamoRepository {
     static existFondo(prestamistaIds, cantidadSolicitada, options) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -69,7 +70,7 @@ class ContratoPrestamoRepository {
             ], options);
             yield this._createAuditLog(auditLogRepository_1.default.CREATE, record.id, data, options);
             yield this.updateCapitalPrestamistas(data.prestamistas, options);
-            yield this.updateDeudaDeudor(data.deudor, data.cantidadSolicitada, options);
+            // await this.updateDeudaDeudor(data.deudor, data.cantidadSolicitada, options);
             return this.findById(record.id, options);
         });
     }
@@ -111,7 +112,7 @@ class ContratoPrestamoRepository {
         return __awaiter(this, void 0, void 0, function* () {
             const deudor = yield deudorRepository_1.default.findById(deudorId, options);
             if (deudor) {
-                const newCantidad = deudor.deudaPendiente + cantidadSolicitada;
+                const newCantidad = deudor.deudaPendiente + Number(cantidadSolicitada);
                 yield deudorRepository_1.default.update(deudorId, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
             }
         });
@@ -120,7 +121,7 @@ class ContratoPrestamoRepository {
         return __awaiter(this, void 0, void 0, function* () {
             const [deudorId, deudor] = yield this.findEntity(deudorIdRef, deudorRepository_1.default, options);
             if (deudor) {
-                const newCantidad = (deudor.deudaPendiente - prevCantidadSolicitada) + nextCantidadSolicitada;
+                const newCantidad = (deudor.deudaPendiente - Number(prevCantidadSolicitada)) + Number(nextCantidadSolicitada);
                 yield deudorRepository_1.default.update(deudorId, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
             }
         });
@@ -138,7 +139,7 @@ class ContratoPrestamoRepository {
             yield contratoPrestamo_1.default(options.database).updateOne({ _id: id }, Object.assign(Object.assign({}, data), { updatedBy: mongooseRepository_1.default.getCurrentUser(options).id }), options);
             yield this._createAuditLog(auditLogRepository_1.default.UPDATE, id, data, options);
             yield this.updateCapitalPrestamistasChange(record.prestamistas, data.prestamistas, options);
-            yield this.updateDeudaDeudorChange(data.deudor, record.cantidadSolicitada, data.cantidadSolicitada, options);
+            // await this.updateDeudaDeudorChange(data.deudor, record.cantidadSolicitada, data.cantidadSolicitada, options);
             record = yield this.findById(id, options);
             return record;
         });
@@ -162,7 +163,7 @@ class ContratoPrestamoRepository {
             if (deudorId) {
                 const deudor = yield deudorRepository_1.default.findById(deudorId, options);
                 if (deudor) {
-                    const newCantidad = deudor.deudaPendiente - cantidadSolicitada;
+                    const newCantidad = deudor.deudaPendiente - Number(cantidadSolicitada);
                     yield deudorRepository_1.default.update(deudorId, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
                 }
             }
@@ -178,7 +179,7 @@ class ContratoPrestamoRepository {
             yield contratoPrestamo_1.default(options.database).deleteOne({ _id: id }, options);
             yield this._createAuditLog(auditLogRepository_1.default.DELETE, id, record, options);
             yield this.devolutionCapitalPrestamistas(record.prestamistas, options);
-            yield this.devolutionDeudaDeudor(record.deudor, record.cantidadSolicitada, options);
+            // await this.devolutionDeudaDeudor(record.deudor, record.cantidadSolicitada, options);
             yield mongooseRepository_1.default.destroyRelationToOne(id, pago_1.default(options.database), 'contratoId', options);
         });
     }
@@ -215,13 +216,20 @@ class ContratoPrestamoRepository {
                 .findOne({ _id: id, tenant: currentTenant.id })
                 .populate({
                 path: 'prestamistas',
-                populate: 'prestamista'
+                populate: {
+                    path: 'prestamista',
+                    populate: 'tags'
+                },
             })
-                .populate('deudor'), options);
+                .populate({
+                path: 'deudor',
+                populate: 'tags'
+            }), options);
             if (!record) {
                 throw new Error404_1.default();
             }
-            return this._mapRelationshipsAndFillDownloadUrl(record);
+            const pagos = yield pagoRepository_1.default.findAndCountAll({ filter: { contratoId: id } }, options);
+            return this._mapRelationshipsAndFillDownloadUrl(record, pagos.rows);
         });
     }
     static findAndCountAll({ filter, limit = 0, offset = 0, orderBy = '' }, options) {
@@ -409,11 +417,20 @@ class ContratoPrestamoRepository {
                 .sort(sort)
                 .populate({
                 path: 'prestamistas',
-                populate: 'prestamista'
+                populate: {
+                    path: 'prestamista',
+                    populate: 'tags',
+                }
             })
-                .populate('deudor');
+                .populate({
+                path: 'deudor',
+                populate: 'tags',
+            });
             const count = yield contratoPrestamo_1.default(options.database).countDocuments(criteria);
-            rows = yield Promise.all(rows.map(this._mapRelationshipsAndFillDownloadUrl));
+            rows = yield Promise.all(rows.map((row) => __awaiter(this, void 0, void 0, function* () {
+                const pagos = yield pagoRepository_1.default.findAndCountAll({ filter: { contratoId: row.id } }, options);
+                return this._mapRelationshipsAndFillDownloadUrl(row, pagos.rows);
+            })));
             return { rows, count };
         });
     }
@@ -453,13 +470,21 @@ class ContratoPrestamoRepository {
                 path: 'deudor',
                 populate: 'tags',
             });
-            return records.map((record) => {
+            const rows = yield Promise.all(records.map((record) => __awaiter(this, void 0, void 0, function* () {
                 var _a, _b, _c;
-                return ({
+                const pagos = yield pagoRepository_1.default.findAndCountAll({ filter: { contratoId: record.id } }, options);
+                const output = yield this._mapRelationshipsAndFillDownloadUrl(record, pagos.rows);
+                return {
                     id: record.id,
-                    label: `${record.id} - [${record.prestamistas.map(row => { var _a; return `${((_a = row.prestamista) === null || _a === void 0 ? void 0 : _a.nombre) || ''} ${row.prestamista.tags ? row.prestamista.tags.length > 0 ? `(${row.prestamista.tags.map((tag) => tag.tag).join(', ')})` : '' : ''}`; }).join(', ')}] - ${(_a = record.deudor) === null || _a === void 0 ? void 0 : _a.nombre} ${((_c = (_b = record.deudor) === null || _b === void 0 ? void 0 : _b.tags) === null || _c === void 0 ? void 0 : _c.length) > 0 ? `(${record.deudor.tags.map((tag) => tag.tag).join(', ')})` : ''} - ${record.interes}% - S/.${record.cantidadSolicitada} - ${record.fecha ? moment_1.default(this.convertDigitIn(record.fecha)).locale('es').format('MMM D, YYYY') : ''}`,
-                });
-            });
+                    label: `${record.id} - [${record.prestamistas.map(row => { var _a; return `${((_a = row.prestamista) === null || _a === void 0 ? void 0 : _a.nombre) || ''} ${row.prestamista.tags ? row.prestamista.tags.length > 0 ? `(${row.prestamista.tags.map((tag) => tag.tag).join(', ')})` : '' : ''}`; }).join(', ').trim()}] - ${(_a = record.deudor) === null || _a === void 0 ? void 0 : _a.nombre} ${((_c = (_b = record.deudor) === null || _b === void 0 ? void 0 : _b.tags) === null || _c === void 0 ? void 0 : _c.length) > 0 ? `(${record.deudor.tags.map((tag) => tag.tag).join(', ')})` : ''} - ${record.interes}% - S/.${record.cantidadSolicitada} - ${record.fecha ? moment_1.default(this.convertDigitIn(record.fecha)).locale('es').format('MMM D, YYYY') : ''}`,
+                    fecha: this.convertDigitIn(record.fecha),
+                    cantidadSolicitada: record.cantidadSolicitada,
+                    interes: record.interes,
+                    interesPendiente: output.interesPendiente,
+                    mesesPagados: output.mesesPagados,
+                };
+            })));
+            return rows;
         });
     }
     static _createAuditLog(action, id, data, options) {
@@ -479,7 +504,19 @@ class ContratoPrestamoRepository {
         months += d2.getMonth();
         return months <= 0 ? 0 : months;
     }
-    static _mapRelationshipsAndFillDownloadUrl(record) {
+    static getTotalInteres(output) {
+        const interes = output.interes;
+        const cantidadSolicitada = output.cantidadSolicitada;
+        const fechaEmision = moment_1.default(ContratoPrestamoRepository.convertDigitIn(output.fecha));
+        const fechaActual = moment_1.default();
+        const duration = moment_1.default.duration(fechaActual.diff(fechaEmision));
+        const dayMonthsMora = 30;
+        const months = duration.months();
+        const days = duration.days();
+        const total = (cantidadSolicitada * (interes / 100)) * months + (((cantidadSolicitada * (interes / 100)) / dayMonthsMora) * days);
+        return total;
+    }
+    static _mapRelationshipsAndFillDownloadUrl(record, pagos = []) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!record) {
                 return null;
@@ -488,17 +525,26 @@ class ContratoPrestamoRepository {
                 ? record.toObject()
                 : record;
             output.fotoFirma = yield fileRepository_1.default.fillDownloadUrl(output.fotoFirma);
-            const interes = output.interes;
-            const cantidadSolicitada = output.cantidadSolicitada;
-            const fechaEmision = moment_1.default(ContratoPrestamoRepository.convertDigitIn(output.fecha));
-            const fechaActual = moment_1.default();
-            const duration = moment_1.default.duration(fechaActual.diff(fechaEmision));
-            const dayMonthsMora = 30;
-            const months = duration.months();
-            const days = duration.days();
-            const total = (cantidadSolicitada * (interes / 100)) * months + (((cantidadSolicitada * (interes / 100)) / dayMonthsMora) * days);
             output.capitalPendiente = output.capitalPendiente || output.cantidadSolicitada;
-            output.interesPendiente = output.interesPendiente + total;
+            const totalInteres = ContratoPrestamoRepository.getTotalInteres(output);
+            output.interesPendiente = totalInteres - output.interesPagado;
+            output.capitalPendiente = output.cantidadSolicitada - output.capitalPagado;
+            const mesesPagados = pagos.map((pago) => {
+                const { fecha, cantidad } = pago;
+                const check = moment_1.default(this.convertDigitIn(fecha), 'DD-MM-YYYY');
+                const mes = check.format('M');
+                return { mes, cantidad };
+            }, []);
+            const result = [];
+            mesesPagados.reduce(function (acc, value) {
+                if (!acc[value.mes]) {
+                    acc[value.mes] = { mes: value.mes, cantidad: 0 };
+                    result.push(acc[value.mes]);
+                }
+                acc[value.mes].cantidad += value.cantidad;
+                return acc;
+            }, {});
+            output.mesesPagados = result;
             return output;
         });
     }

@@ -74,7 +74,7 @@ class DashboardRepository {
                 return null;
             }
             const currentTenant = mongooseRepository_1.default.getCurrentTenant(options);
-            const fieldDate = entityName === 'entryExit' ? '$dateTime' : '$createdAt';
+            const fieldDate = '$fecha';
             const timezone = '-05:00';
             const yearQuery = {
                 year: {
@@ -96,7 +96,36 @@ class DashboardRepository {
                 'month': Object.assign(Object.assign({}, yearQuery), monthQuery),
                 'year': yearQuery
             };
+            const yearQueryString = {
+                year: {
+                    $year: {
+                        $dateFromString: { format: '%d-%m-%Y', dateString: fieldDate, timezone }
+                    }
+                }
+            };
+            const monthQueryString = {
+                month: {
+                    $month: {
+                        $dateFromString: { format: '%d-%m-%Y', dateString: fieldDate, timezone }
+                    }
+                }
+            };
+            const dayQueryString = {
+                day: {
+                    $dayOfMonth: {
+                        $dateFromString: { format: '%d-%m-%Y', dateString: fieldDate, timezone }
+                    }
+                }
+            };
+            const queryString = {
+                'day': Object.assign(Object.assign(Object.assign({}, yearQueryString), monthQueryString), dayQueryString),
+                'month': Object.assign(Object.assign({}, yearQueryString), monthQueryString),
+                'year': yearQueryString
+            };
             if (!query[typeOfDate]) {
+                return null;
+            }
+            if (!queryString[typeOfDate]) {
                 return null;
             }
             let criteriaAnd = [];
@@ -112,7 +141,7 @@ class DashboardRepository {
                 },
                 {
                     $group: {
-                        _id: Object.assign({}, query[typeOfDate]),
+                        _id: Object.assign({}, queryString[typeOfDate]),
                         date: {
                             $last: fieldDate,
                         },

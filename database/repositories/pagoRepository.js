@@ -27,6 +27,12 @@ class PagoRepository {
         return __awaiter(this, void 0, void 0, function* () {
             const currentTenant = mongooseRepository_1.default.getCurrentTenant(options);
             const currentUser = mongooseRepository_1.default.getCurrentUser(options);
+            const contrato = yield contratoPrestamoRepository_1.default.findById(data.contratoId, options);
+            const totalCapital = yield this.getCapitalPagado(data.contratoId, options);
+            console.log(data.cantidad, totalCapital);
+            if ((data.cantidad + totalCapital) > contrato.cantidadSolicitada) {
+                throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
+            }
             const [record] = yield pago_1.default(options.database).create([
                 Object.assign(Object.assign({}, data), { tenant: currentTenant.id, createdBy: currentUser.id, updatedBy: currentUser.id })
             ], options);
@@ -43,7 +49,7 @@ class PagoRepository {
                 if (contrato) {
                     const deudor = yield deudorRepository_1.default.findById(contrato.deudor, options);
                     if (deudor) {
-                        const newCantidad = deudor.deudaPendiente - cantidad;
+                        const newCantidad = deudor.deudaPendiente - Number(cantidad);
                         yield deudorRepository_1.default.update(deudor.id, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
                     }
                     if (tipo === 'Interés') {
@@ -65,20 +71,13 @@ class PagoRepository {
                 if (contrato) {
                     let newInteresPagado = contrato.interesPagado;
                     let newCapitalPagado = contrato.capitalPagado;
-                    let newInteresPendiente = contrato.interesPendiente;
-                    let newCapitalPendiente = contrato.capitalPendiente;
                     if (tipo === 'Interés') {
                         newInteresPagado += cantidad;
-                        newInteresPendiente -= cantidad;
                     }
                     else if (tipo === 'Capital') {
                         newCapitalPagado += cantidad;
-                        newCapitalPendiente -= cantidad;
                     }
-                    if (newCapitalPagado > contrato.capitalPagado) {
-                        throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
-                    }
-                    yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPendiente: newInteresPendiente, capitalPendiente: newCapitalPendiente, interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
+                    yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
                 }
             }
         });
@@ -89,7 +88,7 @@ class PagoRepository {
             if (contrato) {
                 const deudor = yield deudorRepository_1.default.findById(contrato.deudor, options);
                 if (deudor) {
-                    const newCantidad = (deudor.deudaPendiente + prevCantidad) - nextCantidad;
+                    const newCantidad = (deudor.deudaPendiente + Number(prevCantidad)) - Number(nextCantidad);
                     yield deudorRepository_1.default.update(deudor.id, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
                 }
             }
@@ -101,34 +100,24 @@ class PagoRepository {
             if (contrato) {
                 let newInteresPagado = contrato.interesPagado;
                 let newCapitalPagado = contrato.capitalPagado;
-                let newInteresPendiente = contrato.interesPendiente;
-                let newCapitalPendiente = contrato.capitalPendiente;
                 if (prevTipo === 'Interés' && newTipo === 'Capital') {
                     newCapitalPagado += newCantidad;
                     newInteresPagado -= prevCantidad;
-                    newCapitalPendiente -= newCantidad;
-                    newInteresPendiente += prevCantidad;
                 }
                 else if (prevTipo === 'Capital' && newTipo === 'Interés') {
                     newInteresPagado += newCantidad;
                     newCapitalPagado -= prevCantidad;
-                    newInteresPendiente -= newCantidad;
                     newCapitalPagado += prevCantidad;
                 }
                 else {
                     if (newTipo === 'Interés') {
                         newInteresPagado = (newInteresPagado - prevCantidad) + newCantidad;
-                        newInteresPendiente = (newInteresPendiente + prevCantidad) - newCantidad;
                     }
                     else if (newTipo === 'Capital') {
                         newCapitalPagado = (newCapitalPagado - prevCantidad) + newCantidad;
-                        newCapitalPendiente = (newCapitalPendiente + prevCantidad) - newCantidad;
                     }
                 }
-                if (newCapitalPagado > contrato.capitalPagado) {
-                    throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
-                }
-                yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPendiente: newInteresPendiente, capitalPendiente: newCapitalPendiente, interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
+                yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
             }
         });
     }
@@ -138,6 +127,11 @@ class PagoRepository {
             let record = yield mongooseRepository_1.default.wrapWithSessionIfExists(pago_1.default(options.database).findOne({ _id: id, tenant: currentTenant.id }), options);
             if (!record) {
                 throw new Error404_1.default();
+            }
+            const contrato = yield contratoPrestamoRepository_1.default.findById(data.contratoId, options);
+            const totalCapital = yield this.getCapitalPagado(data.contratoId, options);
+            if (((data.cantidad - record.cantidad) + totalCapital) > contrato.cantidadSolicitada) {
+                throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
             }
             yield pago_1.default(options.database).updateOne({ _id: id }, Object.assign(Object.assign({}, data), { updatedBy: mongooseRepository_1.default.getCurrentUser(options).id }), options);
             yield this._createAuditLog(auditLogRepository_1.default.UPDATE, id, data, options);
@@ -154,17 +148,13 @@ class PagoRepository {
                 if (contrato) {
                     let newInteresPagado = contrato.interesPagado;
                     let newCapitalPagado = contrato.capitalPagado;
-                    let newInteresPendiente = contrato.interesPendiente;
-                    let newCapitalPendiente = contrato.capitalPendiente;
                     if (tipo === 'Interés') {
                         newInteresPagado -= cantidad;
-                        newInteresPendiente += cantidad;
                     }
                     else if (tipo === 'Capital') {
                         newCapitalPagado -= cantidad;
-                        newCapitalPendiente += cantidad;
                     }
-                    yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPendiente: newInteresPendiente, capitalPendiente: newCapitalPendiente, interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
+                    yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { interesPagado: newInteresPagado, capitalPagado: newCapitalPagado }), options);
                 }
             }
         });
@@ -176,10 +166,10 @@ class PagoRepository {
                 if (contrato) {
                     const deudor = yield deudorRepository_1.default.findById(contrato.deudor, options);
                     if (deudor) {
-                        const newCantidad = deudor.deudaPendiente + cantidad;
+                        const newCantidad = deudor.deudaPendiente + Number(cantidad);
                         yield deudorRepository_1.default.update(deudor.id, Object.assign(Object.assign({}, deudor), { deudaPendiente: newCantidad }), options);
                     }
-                    const newDeuda = contrato.deudaPendiente + cantidad;
+                    const newDeuda = contrato.deudaPendiente + Number(cantidad);
                     yield contratoPrestamoRepository_1.default.update(contratoId, Object.assign(Object.assign({}, contrato), { deudaPendiente: newDeuda }), options);
                 }
             }
@@ -365,6 +355,13 @@ class PagoRepository {
                 id: record.id,
                 label: record.id,
             }));
+        });
+    }
+    static getCapitalPagado(contratoId, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pagos = yield this.findAndCountAll({ filter: { contratoId, tipo: 'Capital' } }, options);
+            const totalCapital = pagos.rows.reduce((total, pago) => total + pago.cantidad, 0);
+            return totalCapital;
         });
     }
     static _createAuditLog(action, id, data, options) {

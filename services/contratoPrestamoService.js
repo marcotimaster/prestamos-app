@@ -22,7 +22,6 @@ const settingsRepository_1 = __importDefault(require("../database/repositories/s
 const tenant_1 = __importDefault(require("../database/models/tenant"));
 const contratoPrestamo_1 = __importDefault(require("../database/models/contratoPrestamo"));
 const moment_1 = __importDefault(require("moment"));
-const config_1 = require("../config");
 class ContratoPrestamoService {
     constructor(options) {
         this.options = options;
@@ -111,12 +110,13 @@ class ContratoPrestamoService {
         }
         return result;
     }
-    _sendSmsToDeudor(data, isAuto = false) {
+    _sendSmsToDeudor(data, isAuto = false, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             const { deudor } = data;
-            if (!deudor.telefono)
-                return;
-            const settings = yield settingsRepository_1.default.find(this.options);
+            if (!deudor.telefono) {
+                throw new Error400_1.default(options.language, 'entities.deudor.errors.telMissing');
+            }
+            const settings = yield settingsRepository_1.default.find(isAuto ? options : this.options);
             const variables = [
                 {
                     key: 'deudor',
@@ -129,7 +129,28 @@ class ContratoPrestamoService {
             ];
             const message = this.replaceValueInText(settings.notifyMessage, variables);
             if (isAuto) {
-                new smsSender_1.default().sendTo(config_1.getConfig().MY_PHONE_NUMBER, `Se le notifica que el deudor ${deudor.nombre}, según el contrato establecido en la fecha ${data.fecha} por el monto de ${data.cantidadSolicitada} con el interés del ${data.interes}%, debe realizar el pago del interés al préstamo solicitado, el cual se cumple el día de mañana.`);
+                const variables = [
+                    {
+                        key: 'deudor',
+                        value: deudor.nombre,
+                    },
+                    {
+                        key: 'fecha',
+                        value: data.fecha,
+                    },
+                    {
+                        key: 'cantidadSolicitada',
+                        value: data.cantidadSolicitada,
+                    },
+                    {
+                        key: 'interés',
+                        value: data.interes,
+                    },
+                ];
+                const myMessage = this.replaceValueInText(settings.notifyMe, variables);
+                new smsSender_1.default().sendTo(settings.myPhoneNumber, myMessage
+                // `Se le notifica que el deudor ${deudor.nombre}, según el contrato establecido en la fecha ${data.fecha} por el monto de ${data.cantidadSolicitada} con el interés del ${data.interes}%, debe realizar el pago del interés al préstamo solicitado, el cual se cumple el día de mañana.`
+                );
             }
             return new smsSender_1.default().sendTo(deudor.telefono, message);
         });
@@ -146,9 +167,11 @@ class ContratoPrestamoService {
                     const dayMonthsMora = 30;
                     const months = duration.months();
                     const days = duration.days();
-                    if (days === 1) {
+                    const options = Object.assign(Object.assign({}, this.options), { currentTenant: { id: tenant.id } });
+                    const settings = yield settingsRepository_1.default.find(options);
+                    if (days === settings.missingDays) {
                         if (contrato.lastDateNotify != moment_1.default().format('DD-MM-yyyy')) {
-                            yield this._sendSmsToDeudor(contrato, true);
+                            yield this._sendSmsToDeudor(contrato, true, options);
                             yield contratoPrestamo_1.default(this.options.database).find({ tenant: tenant.id, lastDateNotify: moment_1.default().format('DD-MM-yyyy') });
                         }
                     }

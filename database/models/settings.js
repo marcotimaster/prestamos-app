@@ -42,7 +42,18 @@ exports.default = (database) => {
         },
         notifyMessage: {
             type: String,
-            default: 'Estimado(a) prestatario(a) ${deudor}, mediante la misma se le comunica que está muy atrasado en sus pagos de acuerdo al contrato de préstamo establecido, por lo que se le solicita con urgencia ponerse al día con los pagos. Atentamente ${ownerPrestamista}, saludos cordiales.',
+            default: 'Estimad@ se le notifica que el pago del interés al préstamo solicitado se cumple el día de mañana.',
+        },
+        myPhoneNumber: {
+            type: String,
+        },
+        notifyMe: {
+            type: String,
+            default: 'Se le notifica que el deudor ${deudor}, según el contrato establecido en la fecha ${fecha} por el monto de ${cantidadSolicitada} con el interés del ${interes}%, debe realizar el pago del interés al préstamo solicitado, el cual se cumple el día de mañana.'
+        },
+        missingDays: {
+            type: Number,
+            default: 1,
         },
         contractDesign: {
             html: {

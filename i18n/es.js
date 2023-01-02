@@ -83,7 +83,8 @@ const es = {
         },
         deudor: {
             errors: {
-                unique: {}
+                unique: {},
+                telMissing: 'El deudor asignado no posee un número de teléfono',
             }
         },
         contratoPrestamo: {
@@ -94,9 +95,9 @@ const es = {
         },
         pago: {
             errors: {
-                unique: {}
+                unique: {},
+                exceed: 'El pago de capital debe ser menor o igual al capital solicitado'
             },
-            exceed: 'El pago de capital debe ser menor o igual al capital solicitado'
         },
         fondo: {
             errors: {

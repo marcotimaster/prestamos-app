@@ -206,7 +206,7 @@ class AporteRepository {
             });
             return records.map((record) => ({
                 id: record.id,
-                label: `${record.prestamista.nombre} ${record.prestamista.tags ? record.prestamista.tags.length > 0 ? `(${record.prestamista.tags.map((tag) => tag.tag).join(', ')})` : '' : ''} - ${record.aporte}`,
+                label: `${record.prestamista.nombre} ${record.prestamista.tags ? record.prestamista.tags.length > 0 ? `(${record.prestamista.tags.map((tag) => tag.tag).join(', ')})` : '' : ''} - S/. ${record.aporte}`,
             }));
         });
     }
