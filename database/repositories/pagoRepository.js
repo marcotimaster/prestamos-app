@@ -29,7 +29,6 @@ class PagoRepository {
             const currentUser = mongooseRepository_1.default.getCurrentUser(options);
             const contrato = yield contratoPrestamoRepository_1.default.findById(data.contratoId, options);
             const totalCapital = yield this.getCapitalPagado(data.contratoId, options);
-            console.log(data.cantidad, totalCapital);
             if ((data.cantidad + totalCapital) > contrato.cantidadSolicitada) {
                 throw new Error400_1.default(options.language, 'entities.pago.errors.exceed');
             }
