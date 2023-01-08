@@ -218,8 +218,22 @@ class PagoRepository {
             const currentTenant = mongooseRepository_1.default.getCurrentTenant(options);
             let record = yield mongooseRepository_1.default.wrapWithSessionIfExists(pago_1.default(options.database)
                 .findOne({ _id: id, tenant: currentTenant.id })
-                .populate('deudor')
-                .populate('contratoId'), options);
+                .populate({
+                path: 'contratoId',
+                populate: [
+                    {
+                        path: 'prestamistas',
+                        populate: {
+                            path: 'prestamista',
+                            populate: 'tags',
+                        },
+                    },
+                    {
+                        path: 'deudor',
+                        populate: 'tags'
+                    }
+                ]
+            }), options);
             if (!record) {
                 throw new Error404_1.default();
             }
@@ -321,8 +335,22 @@ class PagoRepository {
                 .skip(skip)
                 .limit(limitEscaped)
                 .sort(sort)
-                .populate('deudor')
-                .populate('contratoId');
+                .populate({
+                path: 'contratoId',
+                populate: [
+                    {
+                        path: 'prestamistas',
+                        populate: {
+                            path: 'prestamista',
+                            populate: 'tags',
+                        },
+                    },
+                    {
+                        path: 'deudor',
+                        populate: 'tags'
+                    }
+                ]
+            });
             const count = yield pago_1.default(options.database).countDocuments(criteria);
             rows = yield Promise.all(rows.map(this._mapRelationshipsAndFillDownloadUrl));
             return { rows, count };

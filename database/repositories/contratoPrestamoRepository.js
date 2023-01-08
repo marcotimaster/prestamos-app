@@ -533,20 +533,77 @@ class ContratoPrestamoRepository {
             output.capitalPendiente = output.cantidadSolicitada - output.capitalPagado;
             const mesesPagados = pagos.map((pago) => {
                 const { fecha, cantidad } = pago;
-                const check = moment_1.default(this.convertDigitIn(fecha), 'DD-MM-YYYY');
+                const check = moment_1.default(fecha, 'DD-MM-YYYY');
+                const year = check.format('YYYY');
                 const mes = check.format('M');
-                return { mes, cantidad };
+                return { year, mes, cantidad };
             }, []);
             const result = [];
             mesesPagados.reduce(function (acc, value) {
-                if (!acc[value.mes]) {
-                    acc[value.mes] = { mes: value.mes, cantidad: 0 };
-                    result.push(acc[value.mes]);
+                const key = `${value.mes}-${value.year}`;
+                if (!acc[key]) {
+                    acc[key] = { year: Number(value.year), mes: Number(value.mes), cantidad: 0 };
+                    result.push(acc[key]);
                 }
-                acc[value.mes].cantidad += value.cantidad;
+                acc[key].cantidad += value.cantidad;
                 return acc;
             }, {});
             output.mesesPagados = result;
+            const interes = output.interes;
+            const cantidadSolicitada = output.cantidadSolicitada;
+            const fechaEmision = moment_1.default(ContratoPrestamoRepository.convertDigitIn(output.fecha));
+            const fechaActual = moment_1.default();
+            const duration = moment_1.default.duration(fechaActual.diff(fechaEmision));
+            const dayMonthsMora = 30;
+            const months = duration.months();
+            const days = duration.days();
+            const mesesPendientes = [];
+            for (let i = 0; i < months; i++) {
+                const year = fechaEmision.year();
+                const mes = fechaEmision.month() + 1;
+                const cantidad = result.filter(r => r.year == Number(year) && r.mes == Number(mes)).reduce((acc, r) => acc + r.cantidad, 0);
+                const interesMensual = (cantidadSolicitada * (interes / 100));
+                const cantidadPendiente = interesMensual - cantidad;
+                mesesPendientes.push({
+                    year,
+                    mes,
+                    cantidad: cantidadPendiente,
+                });
+                fechaEmision.add(1, 'months');
+            }
+            const year = fechaEmision.year();
+            const mes = fechaEmision.month() + 1;
+            fechaEmision.add(1, 'months');
+            const nextYear = fechaEmision.year();
+            const nextMes = fechaEmision.month() + 1;
+            const cantidad = result.filter(r => (r.year == Number(year) && r.mes == Number(mes)) || (r.year == Number(nextYear) && r.mes == Number(nextMes))).reduce((acc, r) => acc + r.cantidad, 0);
+            const interesDiario = (((cantidadSolicitada * (interes / 100)) / dayMonthsMora) * days);
+            const cantidadPendiente = interesDiario - cantidad;
+            const mesFound = mesesPendientes[mesesPendientes.length - 1];
+            if (cantidadPendiente < 0 && days && mesFound) {
+                mesesPendientes.pop();
+                mesesPendientes.push({
+                    year,
+                    mes,
+                    days: days,
+                    cantidad: mesFound.cantidad + cantidadPendiente,
+                });
+            }
+            else {
+                mesesPendientes.push({
+                    year,
+                    mes,
+                    days: days,
+                    cantidad: cantidadPendiente,
+                });
+            }
+            output.mesesPagados = output.mesesPagados.map(r => {
+                if ((r.year == Number(nextYear) && r.mes == Number(nextMes))) {
+                    return Object.assign(Object.assign({}, r), { days });
+                }
+                return r;
+            });
+            output.mesesPendientes = mesesPendientes;
             return output;
         });
     }
