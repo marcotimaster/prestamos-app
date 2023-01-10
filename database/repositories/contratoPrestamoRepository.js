@@ -561,7 +561,7 @@ class ContratoPrestamoRepository {
             for (let i = 0; i < months; i++) {
                 const year = fechaEmision.year();
                 const mes = fechaEmision.month() + 1;
-                const cantidad = result.filter(r => r.year == Number(year) && r.mes == Number(mes)).reduce((acc, r) => acc + r.cantidad, 0);
+                const cantidad = result.filter(r => r.year == Number(year) && r.mes == Number(mes) + 1).reduce((acc, r) => acc + r.cantidad, 0);
                 const interesMensual = (cantidadSolicitada * (interes / 100));
                 const cantidadPendiente = interesMensual - cantidad;
                 mesesPendientes.push({
