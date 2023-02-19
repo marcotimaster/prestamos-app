@@ -14,11 +14,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const html_pdf_node_1 = __importDefault(require("html-pdf-node"));
 const settingsRepository_1 = __importDefault(require("./../database/repositories/settingsRepository"));
+const axios_1 = __importDefault(require("axios"));
 const { load } = require('cheerio').default;
 class ApiResponseHandler {
     static download(req, res, path) {
         return __awaiter(this, void 0, void 0, function* () {
             res.download(path);
+        });
+    }
+    static downloadURL(req, res, url) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const response = yield axios_1.default({
+                method: 'get',
+                url,
+                responseType: 'stream'
+            });
+            response.data.pipe(res);
+        });
+    }
+    static getHeadersURL(req, res, url) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const response = yield axios_1.default({
+                method: 'head',
+                url
+            });
+            res.send(response.headers);
         });
     }
     static success(req, res, payload) {
